@@ -31,47 +31,65 @@
 </main>
 
 <script>
-    // 글 데이터 관리 (나중에는 별도 JSON 파일로 빼면 더 편합니다)
-    const posts = [
-        { title: "New One", date: "2025-12-11", cat: "projects", summary: "프로젝트 카테고리 테스트", file: "my-project.md" },
-        { title: "mini test", date: "2025-12-12", cat: "projects", summary: "table / image test", file: "test.md" }
-    ];
+    // 1. 데이터 관리 (여기에 글을 추가하세요)
+const posts = [
+    { title: "New One", date: "2025-12-11", cat: "projects", summary: "프로젝트 카테고리 테스트", file: "my-project.md" },
+    { title: "Security Study", date: "2025-12-13", cat: "notes", summary: "보안 기초 스터디", file: "study.md" }
+];
 
-    function filterCategory(cat) {
-        showList();
-        document.getElementById('cat-title').innerText = `Category: ${cat}`;
-        const grid = document.getElementById('card-grid');
-        grid.innerHTML = '';
+// 2. 카테고리 필터링 함수
+function filterCategory(cat, push = true) {
+    const grid = document.getElementById('card-grid');
+    const viewer = document.getElementById('viewer');
+    const catTitle = document.getElementById('cat-title');
 
-        posts.filter(p => p.cat === cat).forEach(p => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `<h2>${p.title}</h2><p>${p.date} • ${p.cat}</p><p>${p.summary}</p>`;
-            card.onclick = () => loadPost(p.file);
-            grid.appendChild(card);
-        });
+    // 화면 초기화
+    grid.style.display = 'grid';
+    catTitle.style.display = 'block';
+    viewer.classList.remove('active');
+    grid.innerHTML = '';
+    catTitle.innerText = `Category: ${cat}`;
+
+    posts.filter(p => p.cat === cat).forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h2>${p.title}</h2><p>${p.date} • ${p.cat}</p><p>${p.summary}</p>`;
+        card.onclick = () => loadPost(p.file);
+        grid.appendChild(card);
+    });
+
+    // 주소창 업데이트 (뒤로가기 가능하게)
+    if(push) history.pushState({type: 'list', cat: cat}, '', `#${cat}`);
+}
+
+// 3. 마크다운 로드 함수
+async function loadPost(fileName, push = true) {
+    const res = await fetch(`./posts/${fileName}?v=${new Date().getTime()}`);
+    const text = await res.text();
+    const cleanMd = text.replace(/^---[\s\S]+?---/, '');
+    
+    document.getElementById('card-grid').style.display = 'none';
+    document.getElementById('cat-title').style.display = 'none';
+    const viewer = document.getElementById('viewer');
+    viewer.classList.add('active');
+    document.getElementById('post-content').innerHTML = marked.parse(cleanMd);
+
+    // 주소창 업데이트
+    if(push) history.pushState({type: 'post', file: fileName}, '', `#post=${fileName}`);
+}
+
+// 4. 🔥 뒤로가기 버튼 감지 (가장 중요)
+window.onpopstate = function(event) {
+    if (event.state) {
+        if (event.state.type === 'list') filterCategory(event.state.cat, false);
+        else if (event.state.type === 'post') loadPost(event.state.file, false);
+    } else {
+        filterCategory('projects', false); // 기본값
     }
+};
 
-    async function loadPost(fileName) {
-        const res = await fetch(`./posts/${fileName}`);
-        const text = await res.text();
-        const cleanMd = text.replace(/^---[\s\S]+?---/, '');
-        
-        document.getElementById('card-grid').style.display = 'none';
-        document.getElementById('cat-title').style.display = 'none';
-        const viewer = document.getElementById('viewer');
-        viewer.classList.add('active');
-        document.getElementById('post-content').innerHTML = marked.parse(cleanMd);
-    }
-
-    function showList() {
-        document.getElementById('card-grid').style.display = 'grid';
-        document.getElementById('cat-title').style.display = 'block';
-        document.getElementById('viewer').classList.remove('active');
-    }
-
-    // 초기 화면
-    filterCategory('projects');
+// 초기 실행
+window.onload = () => filterCategory('projects');
 </script>
 </body>
 </html>
