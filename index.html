@@ -2,25 +2,38 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>geonsikw | Security Log</title>
-    <!-- 외부 CSS 파일을 불러옵니다 -->
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
 
 <header>
     <h1>GEONSIKW SECURITY LAB</h1>
-    <p>정보보안기사 & 침투테스트 학습 로그</p>
 </header>
 
 <div class="container">
-    <div class="card">
-        <h2>$ whoami</h2>
-        <p>디자인 파일을 분리해서 훨씬 깔끔해진 제 블로그입니다!</p>
-        <p>이제 <code>style.css</code>만 고치면 모든 페이지 디자인이 바뀝니다.</p>
+    <div class="card" id="content">
+        게시글을 불러오는 중...
     </div>
 </div>
+
+<script>
+    // 1. 읽어올 마크다운 파일 경로 (나중에는 이걸 자동으로 목록화할 수 있습니다)
+    const postPath = 'posts/my-project.md';
+
+    // 2. 파일 가져오기 (fetch)
+    fetch(postPath)
+        .then(response => response.text())
+        .then(text => {
+            // 상단 설정(--- 부분)을 제거하고 순수 마크다운만 파싱
+            const cleanMarkdown = text.replace(/^---[\s\S]+?---/, '');
+            document.getElementById('content').innerHTML = marked.parse(cleanMarkdown);
+        })
+        .catch(err => {
+            document.getElementById('content').innerHTML = "글을 불러오는 데 실패했습니다.";
+        });
+</script>
 
 </body>
 </html>
