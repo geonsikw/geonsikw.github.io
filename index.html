@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>geonsikw | Security Log</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>geonsikw | Security Lab</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -13,26 +14,33 @@
 </header>
 
 <div class="container">
-    <div class="card" id="content">
-        게시글을 불러오는 중...
-    </div>
+    <article id="content">
+        글을 불러오는 중입니다...
+    </article>
 </div>
 
 <script>
-    // 1. 읽어올 마크다운 파일 경로 (나중에는 이걸 자동으로 목록화할 수 있습니다)
-    const postPath = 'posts/my-project.md';
+    // 1. 읽어올 파일 이름을 여기에 적으세요. (나중엔 클릭으로 바꿀 수 있습니다)
+    const targetPost = 'posts/my-project.md';
 
-    // 2. 파일 가져오기 (fetch)
-    fetch(postPath)
-        .then(response => response.text())
-        .then(text => {
-            // 상단 설정(--- 부분)을 제거하고 순수 마크다운만 파싱
+    async function loadPost() {
+        try {
+            const response = await fetch(targetPost);
+            if (!response.ok) throw new Error('파일을 찾을 수 없습니다.');
+            
+            let text = await response.text();
+            
+            // Front Matter (--- 사이의 설정값) 제거 로직
             const cleanMarkdown = text.replace(/^---[\s\S]+?---/, '');
+            
+            // 마크다운을 HTML로 변환하여 출력
             document.getElementById('content').innerHTML = marked.parse(cleanMarkdown);
-        })
-        .catch(err => {
-            document.getElementById('content').innerHTML = "글을 불러오는 데 실패했습니다.";
-        });
+        } catch (error) {
+            document.getElementById('content').innerHTML = `<h2>Error</h2><p>${error.message}</p>`;
+        }
+    }
+
+    loadPost();
 </script>
 
 </body>
