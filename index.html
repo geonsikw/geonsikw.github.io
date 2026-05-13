@@ -2,61 +2,76 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>geonsikw | Security Lab</title>
+    <title>Gwoo Blog Style</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
 
-<header>
-    <h1>GEONSIKW SECURITY LAB</h1>
-</header>
+<nav>
+    <h3>PROJECTS</h3>
+    <ul>
+        <li onclick="filterCategory('projects')">Projects</li>
+        <li onclick="filterCategory('notes')">Notes</li>
+    </ul>
+    <h3>LOGS</h3>
+    <ul>
+        <li onclick="filterCategory('logs')">신념의 기록</li>
+    </ul>
+</nav>
 
-<div class="container">
-    <article id="content">
-        글을 불러오는 중입니다...
-    </article>
-</div>
+<main id="main-area">
+    <h1 id="cat-title">Category: all</h1>
+    <div id="card-grid" class="grid"></div>
+    
+    <div id="viewer">
+        <div class="back-btn" onclick="showList()">← Back to list</div>
+        <div id="post-content"></div>
+    </div>
+</main>
 
 <script>
-    // 경로 앞에 './'를 붙여 현재 디렉토리 기준임을 명시합니다.
-    const targetPost = './posts/my-project.md';
+    // 글 데이터 관리 (나중에는 별도 JSON 파일로 빼면 더 편합니다)
+    const posts = [
+        { title: "New One", date: "2025-12-11", cat: "projects", summary: "프로젝트 카테고리 테스트", file: "my-project.md" },
+        { title: "mini test", date: "2025-12-12", cat: "projects", summary: "table / image test", file: "test.md" }
+    ];
 
-    async function loadPost() {
-        const contentDiv = document.getElementById('content');
-        try {
-            // 캐시 문제를 방지하기 위해 쿼리 스트링을 살짝 붙입니다.
-            const response = await fetch(targetPost + '?v=' + new Date().getTime());
-            
-            if (!response.ok) {
-                throw new Error(`파일을 불러오지 못했습니다. (Status: ${response.status})`);
-            }
-            
-            let text = await response.text();
-            
-            // Front Matter(--- 사이 설정) 제거
-            const cleanMarkdown = text.replace(/^---[\s\S]+?---/, '');
-            
-            // 마크다운 변환
-            contentDiv.innerHTML = marked.parse(cleanMarkdown);
-        } catch (error) {
-            console.error(error);
-            contentDiv.innerHTML = `
-                <h2>오류 발생</h2>
-                <p>${error.message}</p>
-                <p><strong>체크리스트:</strong></p>
-                <ul style="text-align: left; display: inline-block;">
-                    <li>posts 폴더 안에 my-project.md가 있는지 확인</li>
-                    <li>파일명이 모두 소문자인지 확인</li>
-                    <li>GitHub Actions 빌드가 완료되었는지 확인</li>
-                </ul>
-            `;
-        }
+    function filterCategory(cat) {
+        showList();
+        document.getElementById('cat-title').innerText = `Category: ${cat}`;
+        const grid = document.getElementById('card-grid');
+        grid.innerHTML = '';
+
+        posts.filter(p => p.cat === cat).forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<h2>${p.title}</h2><p>${p.date} • ${p.cat}</p><p>${p.summary}</p>`;
+            card.onclick = () => loadPost(p.file);
+            grid.appendChild(card);
+        });
     }
 
-    loadPost();
-</script>
+    async function loadPost(fileName) {
+        const res = await fetch(`./posts/${fileName}`);
+        const text = await res.text();
+        const cleanMd = text.replace(/^---[\s\S]+?---/, '');
+        
+        document.getElementById('card-grid').style.display = 'none';
+        document.getElementById('cat-title').style.display = 'none';
+        const viewer = document.getElementById('viewer');
+        viewer.classList.add('active');
+        document.getElementById('post-content').innerHTML = marked.parse(cleanMd);
+    }
 
+    function showList() {
+        document.getElementById('card-grid').style.display = 'grid';
+        document.getElementById('cat-title').style.display = 'block';
+        document.getElementById('viewer').classList.remove('active');
+    }
+
+    // 초기 화면
+    filterCategory('projects');
+</script>
 </body>
 </html>
