@@ -1,0 +1,376 @@
+---
+title: "New One"
+date: "2025-12-11"
+category: "projects"
+summary: "프로젝트 카테고리 테스트"
+---
+
+## 개요
+이 프로젝트는 **“트랜잭션이 남는 보안 실습장”**을 목표로 설계한 베팅 시스템이다.  
+단순히 DApp이 동작하는 데서 그치지 않고, **공격·방어의 흔적이 모두 증거로 남도록** 구성했다.
+
+핵심 아이디어는 다음 세 가지다.
+
+- **취약점 주입형 실습 모드**
+  - 일부 컨트랙트/라우트는 의도적으로 취약하게 구성
+  - 공격 성공 시 그 결과가 온체인 이벤트로 기록됨
+- **방어 모드**
+  - 동일한 시나리오를 보안 강화 버전으로 재구현
+  - 코드 diff와 테스트 결과로 차이를 명확히 비교
+- **증거 기반 리포팅**
+  - 트랜잭션 해시, 이벤트 로그, 서버 감사 로그를 하나의 리포트로 수집
+
+---
+
+## 데모 & 코드
+- Repository: <https://github.com/...>
+- Live Demo: <https://...>
+
+> ⚠️ 본 프로젝트는 **학습/실습 목적**으로 제작되었으며,  
+> 실제 메인넷 환경이 아닌 로컬 Hardhat 또는 테스트넷을 기준으로 한다.
+
+---
+
+## 문제 정의
+많은 블록체인 예제는 “동작한다”까지만 보여준다.  
+하지만 보안 포트폴리오는 다음 질문에 답해야 한다.
+
+- **무엇이 위협인가?**
+- **그 위협을 설계 단계에서 어떻게 줄였는가?**
+- **어떤 테스트와 증거로 이를 검증했는가?**
+- **실패했을 때 무엇이 남는가?**
+
+이 프로젝트는 위 질문을 **하나의 실습 흐름**으로 묶는 것을 목표로 했다.
+
+---
+
+## 전체 아키텍처
+
+### 구성 요소
+| 컴포넌트 | 기술 | 역할 |
+|---|---|---|
+| Frontend | Next.js (App Router) | 베팅 UI, 실습 결과 시각화 |
+| API | Route Handlers | 실습 모드 토글, 리포트 저장 |
+| Database | PostgreSQL | 감사 로그, 실습 기록 |
+| Smart Contract | Solidity | 베팅, 정산, 이벤트 기록 |
+| Tooling | Hardhat | 배포, 테스트, 가스 분석 |
+
+
+## 핵심 코드 스니펫
+
+### 입력 검증 (API 레벨)
+```ts
+const BetSchema = z.object({
+  amount: z.number().positive(),
+  target: z.string().uuid(),
+});
+
+export function validateBet(input: unknown) {
+  return BetSchema.parse(input);
+}
+```
+### 상태 변경 순서 (컨트랙트 설계)
+
+정산 로직에서 가장 중요한 원칙은
+외부 호출 이전에 상태를 먼저 확정하는 것이다.
+
+```ts
+function settle(uint256 betId) external {
+    Bet storage b = bets[betId];
+
+    require(!b.settled, "already settled");
+
+    // 상태를 먼저 변경
+    b.settled = true;
+
+    // 이후 외부 호출
+    _payout(b);
+}
+```
+이 구조는 다음 공격을 방지한다.
+
+- 재진입 공격 (Reentrancy)
+
+- 상태 꼬임 (State desync)
+
+- 중복 정산 (Double spend)
+
+이는 Solidity 보안의 기본 원칙인
+Checks → Effects → Interactions 패턴을 따른다.
+
+---
+
+## 수학적 모델: 리스크 사고 방식
+
+이 프로젝트는 “도박 시스템”을 만드는 것이 아니라,  
+**보안 사고를 수치적으로 해석하는 훈련 모델**을 제공하는 것이 목적이다.
+
+공격 성공 여부를 확률 변수로 두면,  
+단일 시나리오의 기대값은 다음과 같이 단순화할 수 있다.
+
+$$
+E = p \cdot (R - 1) - (1 - p)
+$$
+
+- \(E\): 기대값 (Expected Value)  
+- \(p\): 공격이 성공할 확률  
+- \(R\): 공격 성공 시 얻는 보상 배수  
+
+### 모델 해석
+
+- **취약 모드**에서는  
+  입력 검증 누락, 상태 변경 순서 오류, 권한 통제 부재로 인해  
+  공격 성공 확률 \(p\)가 인위적으로 상승한다.
+- **방어 모드**의 목표는  
+  보상 \(R\)을 키우는 것이 아니라,  
+  **설계·검증·권한 분리를 통해 \(p\)를 구조적으로 낮추는 것**이다.
+
+즉, 이 시스템에서의 보안 설계는  
+“수익 극대화” 문제가 아니라  
+**실패 확률을 최소화하는 의사결정 문제**로 해석된다.
+
+> 보안은 운에 기대는 게임이 아니라,  
+> 실패 확률을 관리하는 공학 문제다.
+
+---
+
+## 가스 비용 vs 보안 트레이드오프
+
+보안 강화는 종종 **가스 비용 증가**를 동반한다.  
+이 프로젝트는 그 트레이드오프를 “숨기지 않고 보여주는 것”을 목표로 한다.
+
+### 가스 사용량 비교 (예시)
+
+아래 그래프는 정산 함수의 가스 사용량을  
+**취약 버전 / 방어 버전**으로 비교한 예시다.
+
+---
+
+## 스크린샷 갤러리
+
+### 3장 나란히 (데스크톱 3열 → 모바일 1열)
+
+<div
+  style="
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:12px;
+    margin:12px 0;
+  "
+>
+  <figure style="margin:0;">
+    <img src="/posts/blockchain-betting/screen-1.png" alt="Bet UI"
+      style="width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.10);" />
+    <figcaption style="margin-top:8px;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.5;">
+      (1) 베팅 UI — 입력 검증 전/후 비교
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <img src="/posts/blockchain-betting/screen-2.png" alt="Transaction detail"
+      style="width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.10);" />
+    <figcaption style="margin-top:8px;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.5;">
+      (2) 트랜잭션/이벤트 로그 — 온체인 증거
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <img src="/posts/blockchain-betting/screen-3.png" alt="Report dashboard"
+      style="width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.10);" />
+    <figcaption style="margin-top:8px;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.5;">
+      (3) 리포트 대시보드 — receipt 재검증 결과
+    </figcaption>
+  </figure>
+
+  <style>{`
+    @media (max-width: 768px) {
+      div[style*="grid-template-columns:repeat(3"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  `}</style>
+</div>
+
+<div style="margin:10px 0 18px;color:rgba(255,255,255,0.75);font-size:13px;line-height:1.7;">
+  위 3단 구성은 “입력 → 온체인 증거 → 서버 검증” 흐름을 한 번에 보여준다.  
+  방어 설계의 핵심은 공격 성공 확률 \(p\)를 낮추는 것이며, 기대값 관점으로 단순화하면:
+</div>
+
+$$
+E = p \cdot (R - 1) - (1 - p)
+$$
+
+---
+
+### 4장 사방(2x2) (데스크톱 2열 → 모바일 1열)
+
+<div
+  style="
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+    margin:12px 0;
+  "
+>
+  <figure style="margin:0;">
+    <img src="/posts/blockchain-betting/grid-1.png" alt="Vulnerable mode"
+      style="width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.10);" />
+    <figcaption style="margin-top:8px;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.5;">
+      (A) 취약 모드 — 입력/상태 검증 약화
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <img src="/posts/blockchain-betting/grid-2.png" alt="Secure mode"
+      style="width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.10);" />
+    <figcaption style="margin-top:8px;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.5;">
+      (B) 방어 모드 — 검증/권한/상태 안정화
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <img src="/posts/blockchain-betting/grid-3.png" alt="Gas report"
+      style="width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.10);" />
+    <figcaption style="margin-top:8px;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.5;">
+      (C) 가스 리포트 — 보안 강화 비용 시각화
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <img src="/posts/blockchain-betting/grid-4.png" alt="Invariant test"
+      style="width:100%;height:auto;border-radius:12px;border:1px solid rgba(255,255,255,0.10);" />
+    <figcaption style="margin-top:8px;color:rgba(255,255,255,0.65);font-size:12px;line-height:1.5;">
+      (D) Invariant 테스트 — 상태 불변성 검증
+    </figcaption>
+  </figure>
+
+  <style>{`
+    @media (max-width: 768px) {
+      div[style*="grid-template-columns:repeat(2"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  `}</style>
+</div>
+
+<div style="margin:10px 0 18px;color:rgba(255,255,255,0.75);font-size:13px;line-height:1.7;">
+  방어 모드는 보통 가스/복잡도가 증가하지만, 목표는 “비용을 0으로”가 아니라  
+  **실패 확률을 낮춰 전체 리스크를 줄이는 것**이다. (즉 \(p \downarrow\))  
+  이를 의사결정 문제로 쓰면:
+</div>
+
+$$
+\text{minimize } p \quad \text{subject to } \Delta \text{gas} \le \text{budget}
+$$
+
+---
+## 실습 화면 비교
+
+<div
+  style="
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0,1fr));
+    gap:16px;
+    margin:16px 0;
+  "
+>
+  <figure style="margin:0;">
+    <div style="
+      aspect-ratio: 16 / 10;
+      overflow:hidden;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,0.12);
+    ">
+      <img
+        src="/posts/blockchain-betting/grid-1.png"
+        alt="Vulnerable mode"
+        style="
+          width:100%;
+          height:100%;
+          object-fit:cover;
+          display:block;
+        "
+      />
+    </div>
+    <figcaption style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.7);">
+      (A) 취약 모드 — 입력/상태 검증 약화
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <div style="
+      aspect-ratio: 16 / 10;
+      overflow:hidden;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,0.12);
+    ">
+      <img
+        src="/posts/blockchain-betting/grid-2.png"
+        alt="Secure mode"
+        style="
+          width:100%;
+          height:100%;
+          object-fit:cover;
+          display:block;
+        "
+      />
+    </div>
+    <figcaption style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.7);">
+      (B) 방어 모드 — 검증/권한/상태 안정화
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <div style="
+      aspect-ratio: 16 / 10;
+      overflow:hidden;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,0.12);
+    ">
+      <img
+        src="/posts/blockchain-betting/grid-3.png"
+        alt="Gas report"
+        style="
+          width:100%;
+          height:100%;
+          object-fit:cover;
+          display:block;
+        "
+      />
+    </div>
+    <figcaption style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.7);">
+      (C) 가스 리포트 — 보안 강화 비용
+    </figcaption>
+  </figure>
+
+  <figure style="margin:0;">
+    <div style="
+      aspect-ratio: 16 / 10;
+      overflow:hidden;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,0.12);
+    ">
+      <img
+        src="/posts/blockchain-betting/grid-4.png"
+        alt="Invariant test"
+        style="
+          width:100%;
+          height:100%;
+          object-fit:cover;
+          display:block;
+        "
+      />
+    </div>
+    <figcaption style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.7);">
+      (D) Invariant 테스트 — 상태 불변성 검증
+    </figcaption>
+  </figure>
+
+  <style>{`
+    @media (max-width: 768px) {
+      div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+  `}</style>
+</div>
